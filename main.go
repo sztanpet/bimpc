@@ -1,9 +1,10 @@
 // Package msgpcodec is a codec for the github.com/tv42/birpc project providing
 // messagepack en/decoding
-// Users of the package should make sure that
+// Users of the package will receive their arguments as msgp.Raw fields
+// that they themselves will have to unmarshal
 package msgpcodec
 
-//go:generate msgp
+//go:generate msgp -unexported
 
 import (
 	"reflect"
@@ -20,18 +21,18 @@ type codec struct {
 
 // Error is equivalent to birpc.Error,
 // recreated here for messagepack en/decoding
-type Error struct {
+type msgPackError struct {
 	Msg string `msg:"msg"`
 }
 
 // MsgPackMessage is the equivalent of birp.Message
 // recreated here for messagepack en/decoding
-type MsgPackMessage struct {
-	ID     uint64   `msg:"id,string,omitempty"`
-	Func   string   `msg:"fn,omitempty"`
-	Args   msgp.Raw `msg:"args,omitempty"`
-	Result msgp.Raw `msg:"result,omitempty"`
-	Error  *Error   `msg:"error"`
+type msgPackMessage struct {
+	ID     uint64        `msg:"id,string,omitempty"`
+	Func   string        `msg:"fn,omitempty"`
+	Args   msgp.Raw      `msg:"args,omitempty"`
+	Result msgp.Raw      `msg:"result,omitempty"`
+	Error  *msgPackError `msg:"error"`
 }
 
 func (c *codec) ReadMessage(msg *birpc.Message) error {
@@ -40,7 +41,7 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 		return err
 	}
 
-	m := &MsgPackMessage{}
+	m := &msgPackMessage{}
 	err = m.DecodeMsg(msgp.NewReader(r))
 	if err != nil {
 		return err
@@ -58,13 +59,13 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 }
 
 func (c *codec) WriteMessage(msg *birpc.Message) error {
-	m := &MsgPackMessage{}
+	m := &msgPackMessage{}
 	m.ID = msg.ID
 	m.Func = msg.Func
 	m.Args = msg.Args.(msgp.Raw)
 	m.Result = msg.Result.(msgp.Raw)
 	if msg.Error != nil {
-		m.Error = &Error{msg.Error.Msg}
+		m.Error = &msgPackError{msg.Error.Msg}
 	}
 
 	w, err := c.WS.NextWriter(websocket.BinaryMessage)

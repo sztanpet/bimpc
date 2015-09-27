@@ -9,7 +9,7 @@ import (
 )
 
 // DecodeMsg implements msgp.Decodable
-func (z *Error) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *msgPackError) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var isz uint32
@@ -40,7 +40,7 @@ func (z *Error) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z Error) EncodeMsg(en *msgp.Writer) (err error) {
+func (z msgPackError) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 1
 	// write "msg"
 	err = en.Append(0x81, 0xa3, 0x6d, 0x73, 0x67)
@@ -55,7 +55,7 @@ func (z Error) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z Error) MarshalMsg(b []byte) (o []byte, err error) {
+func (z msgPackError) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 1
 	// string "msg"
@@ -65,7 +65,7 @@ func (z Error) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *Error) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *msgPackError) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var isz uint32
@@ -96,13 +96,13 @@ func (z *Error) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	return
 }
 
-func (z Error) Msgsize() (s int) {
+func (z msgPackError) Msgsize() (s int) {
 	s = 1 + 4 + msgp.StringPrefixSize + len(z.Msg)
 	return
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *MsgPackMessage) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *msgPackMessage) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var isz uint32
@@ -146,7 +146,7 @@ func (z *MsgPackMessage) DecodeMsg(dc *msgp.Reader) (err error) {
 				z.Error = nil
 			} else {
 				if z.Error == nil {
-					z.Error = new(Error)
+					z.Error = new(msgPackError)
 				}
 				var isz uint32
 				isz, err = dc.ReadMapHeader()
@@ -184,7 +184,7 @@ func (z *MsgPackMessage) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z *MsgPackMessage) EncodeMsg(en *msgp.Writer) (err error) {
+func (z *msgPackMessage) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 5
 	// write "id"
 	err = en.Append(0x85, 0xa2, 0x69, 0x64)
@@ -248,7 +248,7 @@ func (z *MsgPackMessage) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z *MsgPackMessage) MarshalMsg(b []byte) (o []byte, err error) {
+func (z *msgPackMessage) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 5
 	// string "id"
@@ -283,7 +283,7 @@ func (z *MsgPackMessage) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *MsgPackMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *msgPackMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var isz uint32
@@ -327,7 +327,7 @@ func (z *MsgPackMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				z.Error = nil
 			} else {
 				if z.Error == nil {
-					z.Error = new(Error)
+					z.Error = new(msgPackError)
 				}
 				var isz uint32
 				isz, bts, err = msgp.ReadMapHeaderBytes(bts)
@@ -365,7 +365,7 @@ func (z *MsgPackMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	return
 }
 
-func (z *MsgPackMessage) Msgsize() (s int) {
+func (z *msgPackMessage) Msgsize() (s int) {
 	s = 1 + 3 + msgp.Uint64Size + 3 + msgp.StringPrefixSize + len(z.Func) + 5 + z.Args.Msgsize() + 7 + z.Result.Msgsize() + 6
 	if z.Error == nil {
 		s += msgp.NilSize
