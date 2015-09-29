@@ -1,4 +1,4 @@
-package msgpcodec
+package mpc
 
 // NOTE: THIS FILE WAS PRODUCED BY THE
 // MSGP CODE GENERATION TOOL (github.com/tinylib/msgp)
@@ -11,8 +11,8 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-func TestMarshalUnmarshalmsgPackError(t *testing.T) {
-	v := msgPackError{}
+func TestMarshalUnmarshalError(t *testing.T) {
+	v := Error{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -34,8 +34,8 @@ func TestMarshalUnmarshalmsgPackError(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgmsgPackError(b *testing.B) {
-	v := msgPackError{}
+func BenchmarkMarshalMsgError(b *testing.B) {
+	v := Error{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -43,8 +43,8 @@ func BenchmarkMarshalMsgmsgPackError(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgmsgPackError(b *testing.B) {
-	v := msgPackError{}
+func BenchmarkAppendMsgError(b *testing.B) {
+	v := Error{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -55,8 +55,8 @@ func BenchmarkAppendMsgmsgPackError(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalmsgPackError(b *testing.B) {
-	v := msgPackError{}
+func BenchmarkUnmarshalError(b *testing.B) {
+	v := Error{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -69,8 +69,8 @@ func BenchmarkUnmarshalmsgPackError(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodemsgPackError(t *testing.T) {
-	v := msgPackError{}
+func TestEncodeDecodeError(t *testing.T) {
+	v := Error{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -79,7 +79,7 @@ func TestEncodeDecodemsgPackError(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := msgPackError{}
+	vn := Error{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -93,8 +93,8 @@ func TestEncodeDecodemsgPackError(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodemsgPackError(b *testing.B) {
-	v := msgPackError{}
+func BenchmarkEncodeError(b *testing.B) {
+	v := Error{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -107,8 +107,8 @@ func BenchmarkEncodemsgPackError(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodemsgPackError(b *testing.B) {
-	v := msgPackError{}
+func BenchmarkDecodeError(b *testing.B) {
+	v := Error{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -124,8 +124,8 @@ func BenchmarkDecodemsgPackError(b *testing.B) {
 	}
 }
 
-func TestMarshalUnmarshalmsgPackMessage(t *testing.T) {
-	v := msgPackMessage{}
+func TestMarshalUnmarshalMessage(t *testing.T) {
+	v := Message{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -147,8 +147,8 @@ func TestMarshalUnmarshalmsgPackMessage(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgmsgPackMessage(b *testing.B) {
-	v := msgPackMessage{}
+func BenchmarkMarshalMsgMessage(b *testing.B) {
+	v := Message{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -156,8 +156,8 @@ func BenchmarkMarshalMsgmsgPackMessage(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgmsgPackMessage(b *testing.B) {
-	v := msgPackMessage{}
+func BenchmarkAppendMsgMessage(b *testing.B) {
+	v := Message{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -168,8 +168,8 @@ func BenchmarkAppendMsgmsgPackMessage(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalmsgPackMessage(b *testing.B) {
-	v := msgPackMessage{}
+func BenchmarkUnmarshalMessage(b *testing.B) {
+	v := Message{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -182,8 +182,8 @@ func BenchmarkUnmarshalmsgPackMessage(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodemsgPackMessage(t *testing.T) {
-	v := msgPackMessage{}
+func TestEncodeDecodeMessage(t *testing.T) {
+	v := Message{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -192,7 +192,7 @@ func TestEncodeDecodemsgPackMessage(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := msgPackMessage{}
+	vn := Message{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -206,8 +206,8 @@ func TestEncodeDecodemsgPackMessage(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodemsgPackMessage(b *testing.B) {
-	v := msgPackMessage{}
+func BenchmarkEncodeMessage(b *testing.B) {
+	v := Message{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -220,8 +220,8 @@ func BenchmarkEncodemsgPackMessage(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodemsgPackMessage(b *testing.B) {
-	v := msgPackMessage{}
+func BenchmarkDecodeMessage(b *testing.B) {
+	v := Message{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
