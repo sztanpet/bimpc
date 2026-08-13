@@ -56,7 +56,9 @@ func (c *Codec) ReadMessage(msg *birpc.Message) error {
 // WriteMessage marshals the birpc.Message into messagepack and writes it out
 // to the websocket connection
 func (c *Codec) WriteMessage(msg *birpc.Message) error {
-	m := &mpc.Message{}
+	m := mpc.GetMessage()
+	defer mpc.PutMessage(m)
+
 	if err := mpc.ToWire(m, msg); err != nil {
 		return err
 	}

@@ -85,7 +85,9 @@ func (c *Codec) ReadMessage(msg *birpc.Message) error {
 // WriteMessage marshals the birpc.Message into messagepack and publishes it
 // to the redis pub-sub channel
 func (c *Codec) WriteMessage(msg *birpc.Message) error {
-	m := &mpc.Message{}
+	m := mpc.GetMessage()
+	defer mpc.PutMessage(m)
+
 	if err := mpc.ToWire(m, msg); err != nil {
 		return err
 	}

@@ -201,7 +201,7 @@ func TestToWire(t *testing.T) {
 		if !bytes.Equal(m.Args, rawArgs) {
 			t.Errorf("args\n got % x\nwant % x", m.Args, rawArgs)
 		}
-		if m.Result != nil || m.Error != nil {
+		if len(m.Result) != 0 || m.Error != nil {
 			t.Errorf("result/error should be unset: %+v", m)
 		}
 	})
@@ -214,7 +214,7 @@ func TestToWire(t *testing.T) {
 		if len(m.Result) == 0 {
 			t.Error("result not marshaled")
 		}
-		if m.Args != nil {
+		if len(m.Args) != 0 {
 			t.Error("args should be unset")
 		}
 	})
@@ -229,7 +229,9 @@ func TestToWire(t *testing.T) {
 		}
 	})
 
-	// a message reused across calls must not leak the previous payload
+	// a message reused across calls must not leak the previous payload. The
+	// buffers are kept, so "cleared" means empty rather than nil, which is
+	// the same nil once it hits the wire.
 	t.Run("reuse clears the message", func(t *testing.T) {
 		m := Message{
 			ID:     1,
@@ -241,8 +243,20 @@ func TestToWire(t *testing.T) {
 		if err := ToWire(&m, &birpc.Message{ID: 2}); err != nil {
 			t.Fatal(err)
 		}
-		if m.ID != 2 || m.Func != "" || m.Args != nil || m.Result != nil || m.Error != nil {
+		if m.ID != 2 || m.Func != "" || len(m.Args) != 0 || len(m.Result) != 0 || m.Error != nil {
 			t.Errorf("stale fields left behind: %+v", m)
+		}
+
+		b, err := m.MarshalMsg(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := (&Message{ID: 2}).MarshalMsg(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(b, want) {
+			t.Errorf("a reused message does not encode like a fresh one\n got % x\nwant % x", b, want)
 		}
 	})
 
@@ -268,6 +282,56 @@ func TestToWire(t *testing.T) {
 			})
 		}
 	})
+}
+
+// The whole point of handing the message back to the pool: a codec writing in
+// a loop must not allocate per message.
+func TestToWireReusesItsBuffers(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  birpc.Message
+	}{
+		{"request", birpc.Message{ID: 1, Func: "Arith.Add", Args: testmsg.Args{A: 1, B: 2, S: "hello"}}},
+		{"response", birpc.Message{ID: 1, Result: &testmsg.Result{C: 3, S: "hello"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := GetMessage()
+			defer PutMessage(m)
+
+			// the first one grows the buffers
+			if err := ToWire(m, &tt.msg); err != nil {
+				t.Fatal(err)
+			}
+
+			n := testing.AllocsPerRun(100, func() {
+				if err := ToWire(m, &tt.msg); err != nil {
+					t.Fatal(err)
+				}
+			})
+			if n > 0 {
+				t.Errorf("ToWire allocated %v times per call", n)
+			}
+		})
+	}
+}
+
+// A pooled message must not hand the next user a buffer it grew for a message
+// that happened to be enormous.
+func TestPutMessageDropsOversizedBuffers(t *testing.T) {
+	m := GetMessage()
+	m.Args = make(msgp.Raw, maxPooledBuffer+1)
+	m.Result = make(msgp.Raw, maxPooledBuffer+1)
+	m.Error = &Error{Msg: "boom"}
+	PutMessage(m)
+
+	if cap(m.Args) != 0 || cap(m.Result) != 0 {
+		t.Errorf("kept %d and %d bytes of buffer", cap(m.Args), cap(m.Result))
+	}
+	if m.Error != nil {
+		t.Error("kept the error")
+	}
 }
 
 func TestFromWire(t *testing.T) {

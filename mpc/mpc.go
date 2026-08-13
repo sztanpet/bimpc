@@ -7,6 +7,7 @@ package mpc
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/tinylib/msgp/msgp"
 	"github.com/tv42/birpc"
@@ -31,24 +32,56 @@ type Message struct {
 	Error  *Error   `msg:"error"`
 }
 
+// messages hands out wire messages that keep their payload buffers between
+// uses, so writing one does not allocate
+var messages = sync.Pool{
+	New: func() interface{} { return &Message{} },
+}
+
+// a message that had to grow a large buffer once should not hold on to it for
+// the lifetime of the process
+const maxPooledBuffer = 64 << 10
+
+// GetMessage returns a wire message to be filled in by ToWire. Hand it back
+// with PutMessage once it has been written out.
+func GetMessage() *Message {
+	return messages.Get().(*Message)
+}
+
+// PutMessage returns a wire message for reuse. The caller must be done with
+// it: whatever wrote it out has to have copied the payloads by now.
+func PutMessage(m *Message) {
+	if cap(m.Args) > maxPooledBuffer {
+		m.Args = nil
+	}
+	if cap(m.Result) > maxPooledBuffer {
+		m.Result = nil
+	}
+	m.Error = nil
+
+	messages.Put(m)
+}
+
 // ToWire fills m from msg, marshaling the arguments and the result into their
 // raw MessagePack representation.
 //
 // Args and Result MUST implement the msgp.Marshaler interface when they are
 // set; a value that does not is an error rather than a silently dropped field,
 // as the peer would otherwise see a well-formed message with no payload.
+//
+// The payloads are marshaled into whatever m already has, so a message that
+// comes back around is free of allocations. An absent payload is left as an
+// empty slice rather than a nil one, which is the same nil on the wire.
 func ToWire(m *Message, msg *birpc.Message) error {
 	m.ID = msg.ID
 	m.Func = msg.Func
-	m.Args = nil
-	m.Result = nil
 	m.Error = nil
 
 	var err error
-	if m.Args, err = marshal(msg.Args); err != nil {
+	if m.Args, err = marshal(m.Args, msg.Args); err != nil {
 		return fmt.Errorf("marshaling args: %v", err)
 	}
-	if m.Result, err = marshal(msg.Result); err != nil {
+	if m.Result, err = marshal(m.Result, msg.Result); err != nil {
 		return fmt.Errorf("marshaling result: %v", err)
 	}
 
@@ -59,19 +92,21 @@ func ToWire(m *Message, msg *birpc.Message) error {
 	return nil
 }
 
-func marshal(v interface{}) (msgp.Raw, error) {
+// marshal appends the MessagePack form of v to buf, reusing its storage
+func marshal(buf msgp.Raw, v interface{}) (msgp.Raw, error) {
+	buf = buf[:0]
 	if v == nil {
-		return nil, nil
+		return buf, nil
 	}
 
 	t, ok := v.(msgp.Marshaler)
 	if !ok {
-		return nil, fmt.Errorf("%T does not implement the msgp.Marshaler interface", v)
+		return buf, fmt.Errorf("%T does not implement the msgp.Marshaler interface", v)
 	}
 
-	b, err := t.MarshalMsg(nil)
+	b, err := t.MarshalMsg(buf)
 	if err != nil {
-		return nil, err
+		return buf, err
 	}
 	return msgp.Raw(b), nil
 }
