@@ -61,9 +61,21 @@ func index(w http.ResponseWriter, req *http.Request) {
 type Chat struct {
 	broadcast *topic.Topic
 	registry  *birpc.Registry
+	upgrader  websocket.Upgrader
 }
 
 type nothing struct{}
+
+// newChat registers the chat service with itself, so both ends of a
+// connection can call Chat.Message on each other
+func newChat() *Chat {
+	c := &Chat{
+		broadcast: topic.New(),
+		registry:  birpc.NewRegistry(),
+	}
+	c.registry.RegisterService(c)
+	return c
+}
 
 func (c *Chat) Message(msg *Incoming, _ *nothing, ws *websocket.Conn) error {
 	log.Printf("recv from %v:%#v\n", ws.RemoteAddr(), msg)
@@ -74,6 +86,50 @@ func (c *Chat) Message(msg *Incoming, _ *nothing, ws *websocket.Conn) error {
 		Message: msg.Message,
 	}
 	return nil
+}
+
+// serve upgrades the connection and pumps broadcasts at it until either side
+// gives up
+func (c *Chat) serve(w http.ResponseWriter, req *http.Request) {
+	ws, err := c.upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	endpoint := bimpcws.NewEndpoint(c.registry, ws)
+	messages := make(chan interface{}, 10)
+	c.broadcast.Register(messages)
+
+	// unregistering closes the channel, which is what stops the pump below,
+	// otherwise every disconnect leaves a goroutine broadcasting into a dead
+	// websocket
+	defer c.broadcast.Unregister(messages)
+
+	_ = endpoint.Go("Chat.Message", Outgoing{
+		Time:    uint32(time.Now().Unix()),
+		From:    "Server",
+		Message: "HELLO FROM SERVER",
+	}, nil, nil)
+
+	go func() {
+		defer c.broadcast.Unregister(messages)
+		for i := range messages {
+			msg := i.(Outgoing)
+			// Fire-and-forget.
+			// TODO use .Notify when it exists
+			_ = endpoint.Go("Chat.Message", msg, nil, nil)
+		}
+		// broadcast topic kicked us out for being too slow;
+		// probably a hung TCP connection. let client
+		// re-establish.
+		log.Printf("Kicking slow client: %v", ws.RemoteAddr())
+		ws.Close()
+	}()
+
+	if err := endpoint.Serve(); err != nil {
+		log.Printf("websocket error from %v: %v", ws.RemoteAddr(), err)
+	}
 }
 
 func main() {
@@ -91,49 +147,10 @@ func main() {
 
 	log.Printf("Serving at http://%s:%d/", *host, *port)
 
-	chat := Chat{}
-	chat.broadcast = topic.New()
-	chat.registry = birpc.NewRegistry()
-	chat.registry.RegisterService(&chat)
+	chat := newChat()
 	defer close(chat.broadcast.Broadcast)
-	upgrader := websocket.Upgrader{}
 
-	serve := func(w http.ResponseWriter, req *http.Request) {
-		ws, err := upgrader.Upgrade(w, req, nil)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		endpoint := bimpcws.NewEndpoint(chat.registry, ws)
-		messages := make(chan interface{}, 10)
-		chat.broadcast.Register(messages)
-		_ = endpoint.Go("Chat.Message", Outgoing{
-			Time:    uint32(time.Now().Unix()),
-			From:    "Server",
-			Message: "HELLO FROM SERVER",
-		}, nil, nil)
-
-		go func() {
-			defer chat.broadcast.Unregister(messages)
-			for i := range messages {
-				msg := i.(Outgoing)
-				// Fire-and-forget.
-				// TODO use .Notify when it exists
-				_ = endpoint.Go("Chat.Message", msg, nil, nil)
-			}
-			// broadcast topic kicked us out for being too slow;
-			// probably a hung TCP connection. let client
-			// re-establish.
-			log.Printf("Kicking slow client: %v", ws.RemoteAddr())
-			ws.Close()
-		}()
-
-		if err := endpoint.Serve(); err != nil {
-			log.Printf("websocket error from %v: %v", ws.RemoteAddr(), err)
-		}
-	}
-
-	http.HandleFunc("/sock", serve)
+	http.HandleFunc("/sock", chat.serve)
 	http.Handle("/", http.HandlerFunc(index))
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	err := http.ListenAndServe(addr, nil)
