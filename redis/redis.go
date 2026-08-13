@@ -115,23 +115,19 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 		m.Error = &mpc.Error{Msg: msg.Error.Msg}
 	}
 
+	b, err := m.MarshalMsg(c.buf[:0])
+	if err != nil {
+		return err
+	}
+	c.buf = b
+
 	conn, err := c.db.Connection()
 	if err != nil {
 		return err
 	}
-
-	b, err := m.MarshalMsg(c.buf)
-	if err != nil {
-		return err
-	}
-	c.buf = b[:0]
+	defer conn.Return()
 
 	_, err = conn.Do("PUBLISH", c.ch, b)
-	if err != nil {
-		return err
-	}
-
-	err = conn.Return()
 	return err
 }
 
