@@ -97,16 +97,19 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 
 	// replace the writer, encode the message, flush the buffer to the writer
 	// buffer, close the writer thus flushing its buffer to the wire finally
-	defer w.Close()
 	c.w.Reset(w)
 	if err = m.EncodeMsg(c.w); err != nil {
+		w.Close()
 		return err
 	}
 	if err = c.w.Flush(); err != nil {
+		w.Close()
 		return err
 	}
 
-	return nil
+	// the frame is only complete once the writer is closed, so its error
+	// decides whether the message made it out
+	return w.Close()
 }
 
 // Close closes the websocket connection
