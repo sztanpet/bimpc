@@ -135,12 +135,26 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 }
 
 // Close stops the redis subscription
+//
+// It deliberately does not take rmu: a reader blocked in Pop would hold it
+// until a message arrives. The redis client offers no way to interrupt that,
+// so tearing down an endpoint whose ReadMessage is blocked means closing the
+// database out from under it.
 func (c *codec) Close() error {
-	if c.sub != nil {
-		return c.sub.Close()
+	if c.sub == nil {
+		return nil
 	}
 
-	return nil
+	// Subscription.Close only sends punsubscribe, which leaves a plain
+	// channel subscription in place, and the connection goes back into the
+	// pool still in subscriber mode
+	err := c.sub.Unsubscribe(c.ch)
+	if cerr := c.sub.Close(); err == nil {
+		err = cerr
+	}
+	c.sub = nil
+
+	return err
 }
 
 // UnmarshalArgs unmarshals the arguments into the type as registered by
