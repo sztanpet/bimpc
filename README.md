@@ -7,6 +7,8 @@ reflection-free en/decoding.
 
     go get github.com/sztanpet/bimpc
 
+Needs Go 1.24 or newer.
+
 Everything here is based upon existing parts of https://github.com/tv42/birpc
 
 ## Codecs
@@ -82,35 +84,36 @@ int64s, `string256` is two int64s and a 256 byte string.
 Encoding, with the connection stubbed out so only the codec is timed. `size`
 is the whole message, envelope included:
 
-| operation     | payload   | msgpack                 | json                     |
-| ------------- | --------- | ----------------------- | ------------------------ |
-| WriteMessage  | numbers   | 63 ns, 0 allocs, 32 B   | 268 ns, 0 allocs, 74 B   |
-| WriteMessage  | string256 | 64 ns, 0 allocs, 282 B  | 443 ns, 0 allocs, 312 B  |
-| ReadMessage   | numbers   | 252 ns, 176 B, 9 allocs | 1086 ns, 256 B, 7 allocs |
-| ReadMessage   | string256 | 295 ns, 432 B, 9 allocs | 2594 ns, 496 B, 7 allocs |
-| UnmarshalArgs | numbers   | 47 ns, 32 B, 1 alloc    | 773 ns, 248 B, 5 allocs  |
-| UnmarshalArgs | string256 | 88 ns, 288 B, 2 allocs  | 2329 ns, 504 B, 6 allocs |
+| operation     | payload   | msgpack                | json                     |
+| ------------- | --------- | ---------------------- | ------------------------ |
+| WriteMessage  | numbers   | 65 ns, 0 allocs, 32 B  | 262 ns, 0 allocs, 74 B   |
+| WriteMessage  | string256 | 66 ns, 0 allocs, 282 B | 428 ns, 0 allocs, 312 B  |
+| ReadMessage   | numbers   | 198 ns, 128 B, 4 allocs | 1060 ns, 256 B, 7 allocs |
+| ReadMessage   | string256 | 240 ns, 392 B, 4 allocs | 2518 ns, 496 B, 7 allocs |
+| UnmarshalArgs | numbers   | 28 ns, 0 B, 0 allocs   | 723 ns, 216 B, 4 allocs  |
+| UnmarshalArgs | string256 | 69 ns, 256 B, 1 alloc  | 1841 ns, 472 B, 5 allocs |
 
-Decoding a payload is where generated code pulls away from reflection: 16x on
-numbers, 27x on the string. Writing is 4x to 7x and allocates nothing.
+Decoding a payload is where generated code pulls away from reflection: 26x on
+numbers, 27x on the string. Writing is 4x to 6x, reading a message 5x to 10x,
+and neither allocates anything it does not hand on.
 
 Round trip, request out and reply back over loopback TCP:
 
-| benchmark      | msgpack                  | json                      |
-| -------------- | ------------------------ | ------------------------- |
-| Call/numbers   | 35.5 µs, 880 B, 30 allocs  | 51.3 µs, 1488 B, 37 allocs |
-| Call/string256 | 37.2 µs, 1928 B, 33 allocs | 58.2 µs, 2505 B, 39 allocs |
-| CallParallel   | 14.1 µs                    | 19.7 µs                    |
+| benchmark      | msgpack                    | json                       |
+| -------------- | -------------------------- | -------------------------- |
+| Call/numbers   | 34.1 µs, 800 B, 21 allocs  | 50.3 µs, 1488 B, 37 allocs |
+| Call/string256 | 35.3 µs, 1848 B, 23 allocs | 57.1 µs, 2504 B, 39 allocs |
+| CallParallel   | 13.9 µs                    | 19.8 µs                    |
 
 And over a websocket, where the sizes include the frame header:
 
 | benchmark              | msgpack                    | json                       |
 | ---------------------- | -------------------------- | -------------------------- |
-| WriteMessage/numbers   | 4.0 µs, 38 B               | 4.7 µs, 80 B               |
-| WriteMessage/string256 | 3.7 µs, 290 B              | 4.6 µs, 320 B              |
-| Call/numbers           | 37.9 µs, 992 B, 34 allocs  | 54.7 µs, 3488 B, 57 allocs |
-| Call/string256         | 38.9 µs, 2040 B, 37 allocs | 61.8 µs, 4505 B, 59 allocs |
-| CallParallel           | 15.8 µs                    | 22.0 µs                    |
+| WriteMessage/numbers   | 3.9 µs, 38 B               | 4.5 µs, 80 B               |
+| WriteMessage/string256 | 3.8 µs, 290 B              | 4.7 µs, 320 B              |
+| Call/numbers           | 37.5 µs, 912 B, 25 allocs  | 53.7 µs, 3488 B, 57 allocs |
+| Call/string256         | 38.1 µs, 1960 B, 27 allocs | 61.0 µs, 4505 B, 59 allocs |
+| CallParallel           | 15.7 µs                    | 21.6 µs                    |
 
 Some honesty about all this:
 
@@ -125,8 +128,10 @@ Some honesty about all this:
   come from a pool. That is an average, not a guarantee: the garbage collector
   empties the pool, so a sender that goes quiet and then bursts pays for the
   buffers again.
-- The read path still allocates more per message than `jsonmsg` does, and is
-  still four times faster. That is the next thing worth fixing here.
+- Reading allocates three times and no more: the payload, the interface it is
+  handed to birpc in, and the string for the function name. The first two are
+  what `birpc.Message` asks for. The fourth allocation the benchmark reports
+  is birpc's own message, which it makes fresh for every read.
 - `wetsock` had to be wrapped in a mutex to be benchmarked at all: it does not
   serialise its writes, and birpc always sends from a goroutine, so gorilla
   panics after a few thousand calls. The wrapper is charged to it as a plain
