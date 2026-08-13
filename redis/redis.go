@@ -127,7 +127,10 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 	}
 	defer conn.Return()
 
-	_, err = conn.Do("PUBLISH", c.ch, b)
+	// DoInt and not Do: the client hands an error reply back as an ordinary
+	// value with a nil error, and PUBLISH answers with the number of
+	// subscribers it reached, so a reply that is not an integer is a refusal
+	_, err = conn.DoInt("PUBLISH", c.ch, b)
 	return err
 }
 
