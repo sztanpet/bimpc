@@ -1,3 +1,5 @@
+github.com/alicebob/miniredis/v2 v2.38.0 h1:nZAzCR+Lj+Vxk4ZXzm2NuKq2O33RXj1XxJ2e2uP9jiw=
+github.com/alicebob/miniredis/v2 v2.38.0/go.mod h1:TcL7YfarKPGDAthEtl5NBeHZfeUQj6OXMm/+iu5cLMM=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/philhofer/fwd v1.2.0 h1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=
@@ -10,3 +12,5 @@ github.com/tv42/birpc v0.0.0-20150114033644-22dcbfff0024 h1:PEySikkj6tI6lJmrINnp
 github.com/tv42/birpc v0.0.0-20150114033644-22dcbfff0024/go.mod h1:ct3q9zyPUkYvMf+SOFmrdQysqgAxM8wUgyxm6MvyfWA=
 github.com/tv42/topic v0.0.0-20130729201830-aa72cbe81b48 h1:4HadKLQh7sw8SobBMRWhMOZXHm+Nyx+c9xfhJlWEI2Y=
 github.com/tv42/topic v0.0.0-20130729201830-aa72cbe81b48/go.mod h1:b4JA15yUof03YRQ6IiKevPk2syaMBMJb92x9PeyU+Xc=
+github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M=
+github.com/yuin/gopher-lua v1.1.1/go.mod h1:GBR0iDaNXjAgGg9zfCvksxSRnQx76gclCIb7kdAd1Pw=
