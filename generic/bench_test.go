@@ -86,10 +86,13 @@ func BenchmarkUnmarshalArgs(b *testing.B) {
 					b.Fatal(err)
 				}
 
+				// hoisted: a fresh one per iteration escapes into the
+				// interface and would be counted against the codec
+				var args testmsg.Args
+
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-					var args testmsg.Args
 					if err := codec.UnmarshalArgs(&msg, &args); err != nil {
 						b.Fatal(err)
 					}

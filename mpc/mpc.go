@@ -38,9 +38,19 @@ var messages = sync.Pool{
 	New: func() interface{} { return &Message{} },
 }
 
-// a message that had to grow a large buffer once should not hold on to it for
-// the lifetime of the process
-const maxPooledBuffer = 64 << 10
+// maxKeptBuffer caps how much payload buffer is carried between messages. A
+// message that had to grow a large one once should not pin it for the life of
+// the connection, or of the process.
+const maxKeptBuffer = 64 << 10
+
+// keep readies a payload buffer for the next message, or lets go of one that
+// has grown out of hand
+func keep(raw msgp.Raw) msgp.Raw {
+	if cap(raw) > maxKeptBuffer {
+		return nil
+	}
+	return raw[:0]
+}
 
 // GetMessage returns a wire message to be filled in by ToWire. Hand it back
 // with PutMessage once it has been written out.
@@ -51,12 +61,8 @@ func GetMessage() *Message {
 // PutMessage returns a wire message for reuse. The caller must be done with
 // it: whatever wrote it out has to have copied the payloads by now.
 func PutMessage(m *Message) {
-	if cap(m.Args) > maxPooledBuffer {
-		m.Args = nil
-	}
-	if cap(m.Result) > maxPooledBuffer {
-		m.Result = nil
-	}
+	m.Args = keep(m.Args)
+	m.Result = keep(m.Result)
 	m.Error = nil
 
 	messages.Put(m)
@@ -114,15 +120,48 @@ func marshal(buf msgp.Raw, v interface{}) (msgp.Raw, error) {
 // FromWire fills msg from a decoded wire message. The raw payloads are handed
 // over as-is, to be decoded later by UnmarshalArgs/UnmarshalResult once the
 // concrete types are known.
+//
+// A payload that is handed over is detached from m. The caller keeps msg, and
+// birpc serves it from another goroutine while the codec is already decoding
+// the next message, so the two must not share a buffer. What is left behind is
+// empty and safe to decode into again.
 func FromWire(msg *birpc.Message, m *Message) {
 	msg.ID = m.ID
 	msg.Func = m.Func
-	msg.Args = m.Args
-	msg.Result = m.Result
+
+	msg.Args = handOver(m.Args)
+	msg.Result = handOver(m.Result)
+
+	// the buffers stay with the codec to be decoded into again
+	m.Args = keep(m.Args)
+	m.Result = keep(m.Result)
+
 	msg.Error = nil
 	if m.Error != nil {
 		msg.Error = &birpc.Error{Msg: m.Error.Msg}
 	}
+}
+
+// handOver returns the payload to give to the caller
+//
+// It is a copy, because the codec decodes the next message into the same
+// buffer while birpc is still serving this one from another goroutine. One
+// copy of a known size is also cheaper than what it replaces: a decoder
+// starting from an empty buffer grows it in steps, several allocations for
+// anything with more than one field in it.
+//
+// An absent payload stays a nil interface instead of an empty msgp.Raw. The
+// two mean the same thing to Unmarshal, but boxing a slice header costs an
+// allocation, and every request carries an absent result while every response
+// carries absent arguments.
+func handOver(raw msgp.Raw) interface{} {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	out := make(msgp.Raw, len(raw))
+	copy(out, raw)
+	return out
 }
 
 // Unmarshal is a helper function used in all the other packages, it

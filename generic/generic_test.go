@@ -313,6 +313,42 @@ func TestWriteMessageKeepsStreamIntactOnError(t *testing.T) {
 	}
 }
 
+// A codec reading in a loop must not allocate anything beyond what it hands
+// on. The decode buffers belong to the codec and are used again for the next
+// message.
+func TestReadMessageOnlyAllocatesWhatItHandsOver(t *testing.T) {
+	out := &nullConn{keep: true}
+	err := NewCodec(out).WriteMessage(&birpc.Message{
+		ID:   1,
+		Func: "Arith.Add",
+		Args: testmsg.Args{A: 1, B: 2, S: "hello"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewCodec(&repeatConn{msg: out.buf})
+
+	// the first read grows the buffers
+	var msg birpc.Message
+	if err := c.ReadMessage(&msg); err != nil {
+		t.Fatal(err)
+	}
+
+	// the payload copy, the interface it is handed over in, and the function
+	// name. Everything else is reused.
+	const want = 3
+
+	n := testing.AllocsPerRun(100, func() {
+		if err := c.ReadMessage(&msg); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if n > want {
+		t.Errorf("ReadMessage allocated %v times per call, want at most %d", n, want)
+	}
+}
+
 func TestReadMessageRejectsGarbage(t *testing.T) {
 	a, b := net.Pipe()
 	defer a.Close()

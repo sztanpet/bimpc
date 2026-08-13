@@ -22,8 +22,9 @@ var ErrInvalidMsg = errors.New("Websocket message was not a binary message")
 type Codec struct {
 	ws *websocket.Conn
 
-	rmu sync.Mutex
-	r   *msgp.Reader
+	rmu  sync.Mutex
+	r    *msgp.Reader
+	wire mpc.Message
 
 	wmu sync.Mutex
 	w   *msgp.Writer
@@ -44,12 +45,11 @@ func (c *Codec) ReadMessage(msg *birpc.Message) error {
 
 	c.r.Reset(r)
 
-	m := &mpc.Message{}
-	if err := m.DecodeMsg(c.r); err != nil {
+	if err := c.wire.DecodeMsg(c.r); err != nil {
 		return err
 	}
 
-	mpc.FromWire(msg, m)
+	mpc.FromWire(msg, &c.wire)
 	return nil
 }
 

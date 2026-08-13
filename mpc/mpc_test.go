@@ -321,8 +321,8 @@ func TestToWireReusesItsBuffers(t *testing.T) {
 // that happened to be enormous.
 func TestPutMessageDropsOversizedBuffers(t *testing.T) {
 	m := GetMessage()
-	m.Args = make(msgp.Raw, maxPooledBuffer+1)
-	m.Result = make(msgp.Raw, maxPooledBuffer+1)
+	m.Args = make(msgp.Raw, maxKeptBuffer+1)
+	m.Result = make(msgp.Raw, maxKeptBuffer+1)
 	m.Error = &Error{Msg: "boom"}
 	PutMessage(m)
 
@@ -364,6 +364,44 @@ func TestFromWire(t *testing.T) {
 		}
 		if msg.Error != nil {
 			t.Errorf("error should be nil: %v", msg.Error)
+		}
+	})
+
+	// The codec keeps decoding into the same buffer while birpc serves the
+	// message we just handed it from another goroutine. Sharing the buffer
+	// would corrupt one message with the next.
+	t.Run("payloads do not alias the codec's buffer", func(t *testing.T) {
+		m := Message{ID: 1, Args: msgp.Raw{0x01, 0x02, 0x03}}
+
+		var msg birpc.Message
+		FromWire(&msg, &m)
+
+		args, ok := msg.Args.(msgp.Raw)
+		if !ok {
+			t.Fatalf("args: %#v", msg.Args)
+		}
+
+		// whatever the codec decodes next must not show up in it
+		m.Args = append(m.Args[:0], 0xff, 0xff, 0xff)
+		if !bytes.Equal(args, []byte{0x01, 0x02, 0x03}) {
+			t.Errorf("the next message overwrote this one: % x", args)
+		}
+	})
+
+	// An absent payload is a nil interface, not an empty msgp.Raw: it saves
+	// boxing a slice header on every single message.
+	t.Run("absent payloads are nil", func(t *testing.T) {
+		var msg birpc.Message
+		FromWire(&msg, &Message{ID: 3, Func: "Arith.Add", Args: msgp.Raw{0x01}})
+
+		if msg.Result != nil {
+			t.Errorf("result should be a nil interface, got %#v", msg.Result)
+		}
+
+		// and Unmarshal has to be happy with that
+		var result testmsg.Result
+		if err := Unmarshal(msg.Result, &result); err != nil {
+			t.Errorf("unmarshaling an absent result: %v", err)
 		}
 	})
 

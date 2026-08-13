@@ -23,8 +23,9 @@ type Codec struct {
 	in  string
 	out string
 
-	rmu sync.Mutex
-	sub *redis.Subscription
+	rmu  sync.Mutex
+	sub  *redis.Subscription
+	wire mpc.Message
 
 	wmu sync.Mutex
 	buf []byte
@@ -72,12 +73,11 @@ func (c *Codec) ReadMessage(msg *birpc.Message) error {
 			continue
 		}
 
-		m := &mpc.Message{}
-		if _, err = m.UnmarshalMsg(result.Value.Bytes()); err != nil {
+		if _, err = c.wire.UnmarshalMsg(result.Value.Bytes()); err != nil {
 			return err
 		}
 
-		mpc.FromWire(msg, m)
+		mpc.FromWire(msg, &c.wire)
 		return nil
 	}
 }
