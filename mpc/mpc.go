@@ -93,12 +93,26 @@ func FromWire(msg *birpc.Message, m *Message) {
 // Unmarshal is a helper function used in all the other packages, it
 // unmarshals msgp.Raw messages into types, the type (argument ret) MUST
 // implement the msgp.Unmarshaler interface
+//
+// An empty payload means the peer sent nil, ret is then left untouched.
 func Unmarshal(i interface{}, ret interface{}) error {
 	t, ok := ret.(msgp.Unmarshaler)
 	if !ok {
 		return fmt.Errorf("%T does not implement the msgp.Unmarshaler interface", ret)
 	}
 
-	_, err := t.UnmarshalMsg([]byte(i.(msgp.Raw)))
+	if i == nil {
+		return nil
+	}
+
+	raw, ok := i.(msgp.Raw)
+	if !ok {
+		return fmt.Errorf("%T is not a raw MessagePack payload", i)
+	}
+	if len(raw) == 0 {
+		return nil
+	}
+
+	_, err := t.UnmarshalMsg([]byte(raw))
 	return err
 }
