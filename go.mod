@@ -1,0 +1,13 @@
+module github.com/sztanpet/bimpc
+
+go 1.26.5
+
+require (
+	github.com/gorilla/websocket v1.5.3
+	github.com/tideland/golib v4.24.2+incompatible
+	github.com/tinylib/msgp v1.6.4
+	github.com/tv42/birpc v0.0.0-20150114033644-22dcbfff0024
+	github.com/tv42/topic v0.0.0-20130729201830-aa72cbe81b48
+)
+
+require github.com/philhofer/fwd v1.2.0 // indirect

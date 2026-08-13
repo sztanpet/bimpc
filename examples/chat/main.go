@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sztanpet/msgpcodec"
+	bimpcws "github.com/sztanpet/bimpc/websocket"
 	"github.com/tv42/birpc"
 	"github.com/tv42/topic"
 )
@@ -23,12 +23,12 @@ var (
 	port = flag.Int("port", 8000, "TCP port to listen on")
 )
 
-var html *template.Template = template.New("main")
+var html = template.New("main")
 
 func init() {
-	template.Must(html.New("chat.html").Parse(string(chat_html)))
-	template.Must(html.New("chat.css").Parse(string(chat_css)))
-	template.Must(html.New("chat.js").Parse(string(chat_js)))
+	template.Must(html.New("chat.html").Parse(chatHTML))
+	template.Must(html.New("chat.css").Parse(chatCSS))
+	template.Must(html.New("chat.js").Parse(chatJS))
 }
 
 func Usage() {
@@ -103,7 +103,7 @@ func main() {
 			log.Println(err)
 			return
 		}
-		endpoint := msgpcodec.NewEndpoint(chat.registry, ws)
+		endpoint := bimpcws.NewEndpoint(chat.registry, ws)
 		messages := make(chan interface{}, 10)
 		chat.broadcast.Register(messages)
 		_ = endpoint.Go("Chat.Message", Outgoing{
