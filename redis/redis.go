@@ -12,9 +12,14 @@ import (
 	"github.com/tv42/birpc"
 )
 
+// codec reads and writes on separate channels on purpose: redis delivers a
+// published message to every subscriber of that channel, the publisher
+// included, so an endpoint listening on the channel it publishes to would
+// serve its own requests and choke on its own replies.
 type codec struct {
-	db *redis.Database
-	ch string
+	db  *redis.Database
+	in  string
+	out string
 
 	rmu sync.Mutex
 	r   *msgp.Reader
@@ -35,7 +40,7 @@ func (c *codec) setupSubscription() error {
 		c.sub = sub
 	}
 
-	if err := c.sub.Subscribe(c.ch); err != nil {
+	if err := c.sub.Subscribe(c.in); err != nil {
 		c.sub.Close()
 		c.sub = nil
 		return err
@@ -131,7 +136,7 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 	// DoInt and not Do: the client hands an error reply back as an ordinary
 	// value with a nil error, and PUBLISH answers with the number of
 	// subscribers it reached, so a reply that is not an integer is a refusal
-	_, err = conn.DoInt("PUBLISH", c.ch, b)
+	_, err = conn.DoInt("PUBLISH", c.out, b)
 	return err
 }
 
@@ -149,7 +154,7 @@ func (c *codec) Close() error {
 	// Subscription.Close only sends punsubscribe, which leaves a plain
 	// channel subscription in place, and the connection goes back into the
 	// pool still in subscriber mode
-	err := c.sub.Unsubscribe(c.ch)
+	err := c.sub.Unsubscribe(c.in)
 	if cerr := c.sub.Close(); err == nil {
 		err = cerr
 	}
@@ -180,18 +185,23 @@ func (c *codec) FillArgs(arglist []reflect.Value) error {
 	return nil
 }
 
-func NewCodec(db *redis.Database, channel string) *codec {
+// NewCodec returns a codec listening on the subscribe channel and publishing
+// to the publish channel. The two have to differ, see codec.
+func NewCodec(db *redis.Database, subscribe, publish string) *codec {
 	c := &codec{
-		db: db,
-		ch: channel,
-		r:  msgp.NewReader(nil),
-		w:  msgp.NewWriter(nil),
+		db:  db,
+		in:  subscribe,
+		out: publish,
+		r:   msgp.NewReader(nil),
+		w:   msgp.NewWriter(nil),
 	}
 	return c
 }
 
-func NewEndpoint(registry *birpc.Registry, db *redis.Database, channel string) *birpc.Endpoint {
-	c := NewCodec(db, channel)
+// NewEndpoint returns a birpc endpoint serving registry over redis pub-sub,
+// listening on the subscribe channel and publishing to the publish channel
+func NewEndpoint(registry *birpc.Registry, db *redis.Database, subscribe, publish string) *birpc.Endpoint {
+	c := NewCodec(db, subscribe, publish)
 	e := birpc.NewEndpoint(c, registry)
 	return e
 }
