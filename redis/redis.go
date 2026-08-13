@@ -4,6 +4,7 @@ package bimpcrds
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/sztanpet/bimpc/mpc"
@@ -66,7 +67,8 @@ func (c *Codec) ReadMessage(msg *birpc.Message) error {
 			return err
 		}
 
-		if result.Value.IsNil() {
+		// (p)subscribe/(p)unsubscribe confirmations carry no payload
+		if !strings.Contains(result.Kind, "message") || result.Value.IsNil() {
 			continue
 		}
 
