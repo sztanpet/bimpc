@@ -12,5 +12,5 @@ github.com/tv42/birpc v0.0.0-20150114033644-22dcbfff0024 h1:PEySikkj6tI6lJmrINnp
 github.com/tv42/birpc v0.0.0-20150114033644-22dcbfff0024/go.mod h1:ct3q9zyPUkYvMf+SOFmrdQysqgAxM8wUgyxm6MvyfWA=
 github.com/tv42/topic v0.0.0-20130729201830-aa72cbe81b48 h1:4HadKLQh7sw8SobBMRWhMOZXHm+Nyx+c9xfhJlWEI2Y=
 github.com/tv42/topic v0.0.0-20130729201830-aa72cbe81b48/go.mod h1:b4JA15yUof03YRQ6IiKevPk2syaMBMJb92x9PeyU+Xc=
-github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M=
-github.com/yuin/gopher-lua v1.1.1/go.mod h1:GBR0iDaNXjAgGg9zfCvksxSRnQx76gclCIb7kdAd1Pw=
+github.com/yuin/gopher-lua v1.1.2 h1:yF/FjE3hD65tBbt0VXLE13HWS9h34fdzJmrWRXwobGA=
+github.com/yuin/gopher-lua v1.1.2/go.mod h1:7aRmXIWl37SqRf0koeyylBEzJ+aPt8A+mmkQ4f1ntR8=

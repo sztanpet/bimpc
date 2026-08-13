@@ -1,6 +1,6 @@
 module github.com/sztanpet/bimpc
 
-go 1.26.5
+go 1.24
 
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
@@ -13,5 +13,5 @@ require (
 
 require (
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
+	github.com/yuin/gopher-lua v1.1.2 // indirect
 )
