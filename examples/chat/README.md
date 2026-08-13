@@ -1,12 +1,8 @@
 Browser-to-browser chat example
 ===============================
 
-This example uses https://github.com/nsf/bin2go to embed assets. To
-make sure it's installed, run
-
-    go get github.com/nsf/bin2go
-
-and put the resulting bin2go in `PATH`.
+The assets are embedded with //go:embed, so nothing but the Go
+toolchain is needed.
 
 To run the example:
 
