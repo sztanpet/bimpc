@@ -1,5 +1,8 @@
 // Package testmsg holds the MessagePack types and the birpc services shared
-// by the codec tests
+// by the codec tests and benchmarks
+//
+// The types carry json tags as well so the benchmarks can hand the very same
+// value to birpc's own json codecs and compare like with like.
 package testmsg
 
 import (
@@ -12,15 +15,15 @@ import (
 
 // Args is the argument type of the test services
 type Args struct {
-	A int64  `msg:"a"`
-	B int64  `msg:"b"`
-	S string `msg:"s"`
+	A int64  `msg:"a" json:"a"`
+	B int64  `msg:"b" json:"b"`
+	S string `msg:"s" json:"s"`
 }
 
 // Result is the reply type of the test services
 type Result struct {
-	C int64  `msg:"c"`
-	S string `msg:"s"`
+	C int64  `msg:"c" json:"c"`
+	S string `msg:"s" json:"s"`
 }
 
 // Plain deliberately has no MessagePack methods, it is used to check that
