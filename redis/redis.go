@@ -22,11 +22,9 @@ type codec struct {
 	out string
 
 	rmu sync.Mutex
-	r   *msgp.Reader
 	sub *redis.Subscription
 
 	wmu sync.Mutex
-	w   *msgp.Writer
 	buf []byte
 }
 
@@ -192,8 +190,6 @@ func NewCodec(db *redis.Database, subscribe, publish string) *codec {
 		db:  db,
 		in:  subscribe,
 		out: publish,
-		r:   msgp.NewReader(nil),
-		w:   msgp.NewWriter(nil),
 	}
 	return c
 }
