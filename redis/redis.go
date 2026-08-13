@@ -25,6 +25,7 @@ type codec struct {
 	buf []byte
 }
 
+// setupSubscription is called with rmu held
 func (c *codec) setupSubscription() error {
 	if c.sub == nil {
 		sub, err := c.db.Subscription()
@@ -34,8 +35,8 @@ func (c *codec) setupSubscription() error {
 		c.sub = sub
 	}
 
-	err := c.sub.Subscribe(c.ch)
-	if err != nil {
+	if err := c.sub.Subscribe(c.ch); err != nil {
+		c.sub.Close()
 		c.sub = nil
 		return err
 	}
