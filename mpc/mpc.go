@@ -1,6 +1,6 @@
-// Package mpc contains the type sent thrugh the write
+// Package mpc contains the types sent through the wire
 //
-// Both the entire message and error are transmitted as a tupple for speed
+// Both the entire message and error are transmitted as a tuple for speed,
 // interoperating services beware
 package mpc
 
@@ -11,7 +11,7 @@ import (
 )
 
 //go:generate msgp -unexported
-//msgp:tuple MessageError
+//msgp:tuple Message Error
 
 // Error is equivalent to birpc.Error,
 // recreated here for MessagePack en/decoding
