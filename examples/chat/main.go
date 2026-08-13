@@ -16,7 +16,8 @@ import (
 	"github.com/tv42/topic"
 )
 
-//go:generate msgp
+// -unexported so the empty `nothing` reply gets a marshaler too
+//go:generate msgp -unexported
 
 var (
 	host = flag.String("host", "", "IP address to bind to")

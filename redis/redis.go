@@ -8,7 +8,6 @@ import (
 
 	"github.com/sztanpet/bimpc/mpc"
 	"github.com/tideland/golib/redis"
-	"github.com/tinylib/msgp/msgp"
 	"github.com/tv42/birpc"
 )
 
@@ -70,21 +69,12 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 			continue
 		}
 
-		b := result.Value.Bytes()
 		m := &mpc.Message{}
-		_, err = m.UnmarshalMsg(b)
-		if err != nil {
+		if _, err = m.UnmarshalMsg(result.Value.Bytes()); err != nil {
 			return err
 		}
 
-		msg.ID = m.ID
-		msg.Func = m.Func
-		msg.Args = m.Args
-		msg.Result = m.Result
-		if m.Error != nil {
-			msg.Error = &birpc.Error{Msg: m.Error.Msg}
-		}
-
+		mpc.FromWire(msg, m)
 		return nil
 	}
 }
@@ -92,32 +82,13 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 // WriteMessage marshals the birpc.Message into messagepack and publishes it
 // to the redis pub-sub channel
 func (c *codec) WriteMessage(msg *birpc.Message) error {
+	m := &mpc.Message{}
+	if err := mpc.ToWire(m, msg); err != nil {
+		return err
+	}
+
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-
-	m := &mpc.Message{}
-	m.ID = msg.ID
-	m.Func = msg.Func
-
-	if t, ok := msg.Args.(msgp.Marshaler); ok {
-		b, err := t.MarshalMsg(nil)
-		if err != nil {
-			return err
-		}
-		m.Args = msgp.Raw(b)
-	}
-
-	if t, ok := msg.Result.(msgp.Marshaler); ok {
-		b, err := t.MarshalMsg(nil)
-		if err != nil {
-			return err
-		}
-		m.Result = msgp.Raw(b)
-	}
-
-	if msg.Error != nil {
-		m.Error = &mpc.Error{Msg: msg.Error.Msg}
-	}
 
 	b, err := m.MarshalMsg(c.buf[:0])
 	if err != nil {
