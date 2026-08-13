@@ -78,7 +78,7 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 		msg.Args = m.Args
 		msg.Result = m.Result
 		if m.Error != nil {
-			*msg.Error = birpc.Error{Msg: m.Error.Msg}
+			msg.Error = &birpc.Error{Msg: m.Error.Msg}
 		}
 
 		return nil
