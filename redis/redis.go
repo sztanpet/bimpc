@@ -11,11 +11,13 @@ import (
 	"github.com/tv42/birpc"
 )
 
-// codec reads and writes on separate channels on purpose: redis delivers a
+// Codec implements birpc.Codec on top of redis pub-sub channels
+//
+// Reading and writing use separate channels on purpose: redis delivers a
 // published message to every subscriber of that channel, the publisher
 // included, so an endpoint listening on the channel it publishes to would
 // serve its own requests and choke on its own replies.
-type codec struct {
+type Codec struct {
 	db  *redis.Database
 	in  string
 	out string
@@ -28,7 +30,7 @@ type codec struct {
 }
 
 // setupSubscription is called with rmu held
-func (c *codec) setupSubscription() error {
+func (c *Codec) setupSubscription() error {
 	if c.sub == nil {
 		sub, err := c.db.Subscription()
 		if err != nil {
@@ -47,14 +49,13 @@ func (c *codec) setupSubscription() error {
 
 // ReadMessage listens on the redis pub-sub channel and unmarshals messages
 // into a birpc.Message
-func (c *codec) ReadMessage(msg *birpc.Message) error {
+func (c *Codec) ReadMessage(msg *birpc.Message) error {
 	c.rmu.Lock()
 	defer c.rmu.Unlock()
 
 	for {
 		if c.sub == nil {
-			err := c.setupSubscription()
-			if err != nil {
+			if err := c.setupSubscription(); err != nil {
 				return err
 			}
 		}
@@ -81,7 +82,7 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 
 // WriteMessage marshals the birpc.Message into messagepack and publishes it
 // to the redis pub-sub channel
-func (c *codec) WriteMessage(msg *birpc.Message) error {
+func (c *Codec) WriteMessage(msg *birpc.Message) error {
 	m := &mpc.Message{}
 	if err := mpc.ToWire(m, msg); err != nil {
 		return err
@@ -115,7 +116,7 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 // until a message arrives. The redis client offers no way to interrupt that,
 // so tearing down an endpoint whose ReadMessage is blocked means closing the
 // database out from under it.
-func (c *codec) Close() error {
+func (c *Codec) Close() error {
 	if c.sub == nil {
 		return nil
 	}
@@ -134,17 +135,18 @@ func (c *codec) Close() error {
 
 // UnmarshalArgs unmarshals the arguments into the type as registered by
 // birpc.Register, the type MUST implement the msgp.Unmarshaler interface
-func (c *codec) UnmarshalArgs(msg *birpc.Message, args interface{}) error {
+func (c *Codec) UnmarshalArgs(msg *birpc.Message, args interface{}) error {
 	return mpc.Unmarshal(msg.Args, args)
 }
 
 // UnmarshalResult unmarshals the result into the type as registered by
 // birpc.Register, the type MUST implement the msgp.Unmarshaler interface
-func (c *codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
+func (c *Codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
 	return mpc.Unmarshal(msg.Result, result)
 }
 
-func (c *codec) FillArgs(arglist []reflect.Value) error {
+// FillArgs hands the redis database to RPC methods asking for one
+func (c *Codec) FillArgs(arglist []reflect.Value) error {
 	for i := 0; i < len(arglist); i++ {
 		switch arglist[i].Interface().(type) {
 		case *redis.Database:
@@ -155,20 +157,17 @@ func (c *codec) FillArgs(arglist []reflect.Value) error {
 }
 
 // NewCodec returns a codec listening on the subscribe channel and publishing
-// to the publish channel. The two have to differ, see codec.
-func NewCodec(db *redis.Database, subscribe, publish string) *codec {
-	c := &codec{
+// to the publish channel. The two have to differ, see Codec.
+func NewCodec(db *redis.Database, subscribe, publish string) *Codec {
+	return &Codec{
 		db:  db,
 		in:  subscribe,
 		out: publish,
 	}
-	return c
 }
 
 // NewEndpoint returns a birpc endpoint serving registry over redis pub-sub,
 // listening on the subscribe channel and publishing to the publish channel
 func NewEndpoint(registry *birpc.Registry, db *redis.Database, subscribe, publish string) *birpc.Endpoint {
-	c := NewCodec(db, subscribe, publish)
-	e := birpc.NewEndpoint(c, registry)
-	return e
+	return birpc.NewEndpoint(NewCodec(db, subscribe, publish), registry)
 }

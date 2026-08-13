@@ -11,7 +11,8 @@ import (
 	"github.com/tv42/birpc"
 )
 
-type codec struct {
+// Codec implements birpc.Codec on top of any io.ReadWriteCloser
+type Codec struct {
 	conn io.ReadWriteCloser
 
 	rmu sync.Mutex
@@ -23,7 +24,7 @@ type codec struct {
 
 // ReadMessage reads from the connection and unmarshals the message
 // into a birpc.Message
-func (c *codec) ReadMessage(msg *birpc.Message) error {
+func (c *Codec) ReadMessage(msg *birpc.Message) error {
 	c.rmu.Lock()
 	defer c.rmu.Unlock()
 
@@ -37,7 +38,7 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 }
 
 // WriteMessage marshals the birpc.Message into MessagePack and writes it out
-func (c *codec) WriteMessage(msg *birpc.Message) error {
+func (c *Codec) WriteMessage(msg *birpc.Message) error {
 	m := &mpc.Message{}
 	if err := mpc.ToWire(m, msg); err != nil {
 		return err
@@ -54,33 +55,32 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 }
 
 // Close closes the underlying connection
-func (c *codec) Close() error {
+func (c *Codec) Close() error {
 	return c.conn.Close()
 }
 
 // UnmarshalArgs unmarshals the arguments into the type as registered by
 // birpc.Register, the type MUST implement the msgp.Unmarshaler interface
-func (c *codec) UnmarshalArgs(msg *birpc.Message, args interface{}) error {
+func (c *Codec) UnmarshalArgs(msg *birpc.Message, args interface{}) error {
 	return mpc.Unmarshal(msg.Args, args)
 }
 
 // UnmarshalResult unmarshals the result into the type as registered by
 // birpc.Register, the type MUST implement the msgp.Unmarshaler interface
-func (c *codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
+func (c *Codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
 	return mpc.Unmarshal(msg.Result, result)
 }
 
-func NewCodec(conn io.ReadWriteCloser) *codec {
-	c := &codec{
+// NewCodec returns a codec talking MessagePack over conn
+func NewCodec(conn io.ReadWriteCloser) *Codec {
+	return &Codec{
 		conn: conn,
 		r:    msgp.NewReader(conn),
 		w:    msgp.NewWriter(conn),
 	}
-	return c
 }
 
+// NewEndpoint returns a birpc endpoint serving registry over conn
 func NewEndpoint(registry *birpc.Registry, conn io.ReadWriteCloser) *birpc.Endpoint {
-	c := NewCodec(conn)
-	e := birpc.NewEndpoint(c, registry)
-	return e
+	return birpc.NewEndpoint(NewCodec(conn), registry)
 }

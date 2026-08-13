@@ -18,7 +18,8 @@ import (
 // support binary messages, or simply that the other end is not a birpc endpoint
 var ErrInvalidMsg = errors.New("Websocket message was not a binary message")
 
-type codec struct {
+// Codec implements birpc.Codec on top of a websocket connection
+type Codec struct {
 	ws *websocket.Conn
 
 	rmu sync.Mutex
@@ -29,7 +30,7 @@ type codec struct {
 }
 
 // ReadMessage reads from the websocket and unmarshals it into a birpc.Message
-func (c *codec) ReadMessage(msg *birpc.Message) error {
+func (c *Codec) ReadMessage(msg *birpc.Message) error {
 	c.rmu.Lock()
 	defer c.rmu.Unlock()
 
@@ -54,7 +55,7 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 
 // WriteMessage marshals the birpc.Message into messagepack and writes it out
 // to the websocket connection
-func (c *codec) WriteMessage(msg *birpc.Message) error {
+func (c *Codec) WriteMessage(msg *birpc.Message) error {
 	m := &mpc.Message{}
 	if err := mpc.ToWire(m, msg); err != nil {
 		return err
@@ -86,23 +87,24 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 }
 
 // Close closes the websocket connection
-func (c *codec) Close() error {
+func (c *Codec) Close() error {
 	return c.ws.Close()
 }
 
 // UnmarshalArgs unmarshals the arguments into the type as registered by
 // birpc.Register, the type MUST implement the msgp.Unmarshaler interface
-func (c *codec) UnmarshalArgs(msg *birpc.Message, args interface{}) error {
+func (c *Codec) UnmarshalArgs(msg *birpc.Message, args interface{}) error {
 	return mpc.Unmarshal(msg.Args, args)
 }
 
 // UnmarshalResult unmarshals the result into the type as registered by
 // birpc.Register, the type MUST implement the msgp.Unmarshaler interface
-func (c *codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
+func (c *Codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
 	return mpc.Unmarshal(msg.Result, result)
 }
 
-func (c *codec) FillArgs(arglist []reflect.Value) error {
+// FillArgs hands the websocket connection to RPC methods asking for one
+func (c *Codec) FillArgs(arglist []reflect.Value) error {
 	for i := 0; i < len(arglist); i++ {
 		switch arglist[i].Interface().(type) {
 		case *websocket.Conn:
@@ -112,17 +114,16 @@ func (c *codec) FillArgs(arglist []reflect.Value) error {
 	return nil
 }
 
-func NewCodec(ws *websocket.Conn) *codec {
-	c := &codec{
+// NewCodec returns a codec talking MessagePack over the websocket connection
+func NewCodec(ws *websocket.Conn) *Codec {
+	return &Codec{
 		ws: ws,
 		r:  msgp.NewReader(nil),
 		w:  msgp.NewWriter(nil),
 	}
-	return c
 }
 
+// NewEndpoint returns a birpc endpoint serving registry over the websocket
 func NewEndpoint(registry *birpc.Registry, ws *websocket.Conn) *birpc.Endpoint {
-	c := NewCodec(ws)
-	e := birpc.NewEndpoint(c, registry)
-	return e
+	return birpc.NewEndpoint(NewCodec(ws), registry)
 }
