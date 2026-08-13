@@ -33,14 +33,14 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 	c.rmu.Lock()
 	defer c.rmu.Unlock()
 
-	mt, r, err := c.ws.NextReader() // ignoring message type
+	mt, r, err := c.ws.NextReader()
+	if err != nil {
+		return err
+	}
 	if mt != websocket.BinaryMessage {
 		return ErrInvalidMsg
 	}
 
-	if err != nil {
-		return err
-	}
 	c.r.Reset(r)
 
 	m := &mpc.Message{}
